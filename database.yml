@@ -1,0 +1,7 @@
+adapter:  "mysql2"
+host:     "localhost"
+database: "test"
+username: "test"
+password: "test"
+
+
