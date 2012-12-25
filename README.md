@@ -1,4 +1,5 @@
-artificial intelligence
-==
+maze solution
+===
 
-A very flexible random maze generator, solver, and renderer for Ruby
+
+- http://www.imagemagick.org/Usage/montage/
