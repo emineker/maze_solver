@@ -1,3 +1,13 @@
+# encoding: utf-8
+
+# A* algoritmasını kullanarak labirent çözümü üret
+# üretilen çözümleri adım adım görüntüle
+
+require 'theseus'
+# require 'theseus/orthogonal_maze'
+require 'theseus/solvers/base'
+require 'fileutils'
+
 # An implementation of the A* search algorithm. Although this can be used to
 # search "perfect" mazes (those without loops), the recursive backtracker is
 # more efficient in that case.
@@ -16,6 +26,7 @@ class Astar < Theseus::Solvers::Base
   # applications that wish to visualize the A* algorithm can use the open set
   # of Node instances to draw paths through the maze as the algorithm runs.
   class Node
+    # düğüm nesnelerinin karşılaştırılabilmesi bu nesne gerekli
     include Comparable
 
     # The point in the maze associated with this node.
@@ -46,7 +57,7 @@ class Astar < Theseus::Solvers::Base
       @cost = path_cost + estimate
     end
 
-    def <=>(node) #:nodoc:
+    def <=>(node)
       cost <=> node.cost
     end
   end
@@ -56,17 +67,17 @@ class Astar < Theseus::Solvers::Base
   # in sorted order, with the most likely candidate at the head of the list.
   attr_reader :open
 
-  def initialize(maze, a=maze.start, b=maze.finish) #:nodoc:
+  def initialize(maze, a=maze.start, b=maze.finish)
     super
     @open = Node.new(@a, false, 0, estimate(@a), [])
     @visits = Array.new(@maze.height) { Array.new(@maze.width, 0) }
   end
 
-  def current_solution #:nodoc:
+  def current_solution
     @open.history + [@open.point]
   end
 
-  def step #:nodoc:
+  def step
     return false unless @open
 
     current = @open
@@ -98,11 +109,11 @@ class Astar < Theseus::Solvers::Base
 
   private
 
-  def estimate(pt) #:nodoc:
+  def estimate(pt)
     Math.sqrt((@b[0] - pt[0])**2 + (@b[1] - pt[1])**2)
   end
 
-  def add_node(pt, under, path_cost, history) #:nodoc:
+  def add_node(pt, under, path_cost, history)
     return if @visits[pt[1]][pt[0]] & (under ? 2 : 1) != 0
 
     node = Node.new(pt, under, path_cost, estimate(pt), history)
@@ -132,7 +143,99 @@ class Astar < Theseus::Solvers::Base
     end
   end
 
-  def move(pt, direction) #:nodoc:
+  def move(pt, direction)
     [pt[0] + @maze.dx(direction), pt[1] + @maze.dy(direction)]
   end
 end
+
+STEPDIR = "steps/"
+
+# adımlama dizini yoksa oluştur
+Dir.mkdir(STEPDIR) unless File.exist?(STEPDIR)
+
+# dizindeki eski resimleri temizle
+FileUtils.rm_rf("#{STEPDIR}.")
+
+# herhangi bir çoklu bağlantılı labirent oluştur
+maze = Theseus::SigmaMaze.new(width: 10, height: 10, braid: 10)
+puts "labirent üretiliyor"
+maze.generate!
+
+# A* arama algoritması için yeni bir çözüm nesnesi oluştur
+# solver = Astar.new(maze, maze.start, maze.finish)
+solver = Astar.new(maze)
+
+puts "lebirent çözülüyor..."
+
+step = 0
+
+# daha önce kullanılmış ve artık bu yoldan biryere ulaşılamayacağı
+# anlaşıldığında bu alanları gri ile renklendir
+# eskimiş yollar
+stale_paths = maze.new_path(color: 0x9f9f9fff)
+
+while solver.step
+  # devamı olan yolları "açık küme" şeklinde tanımla
+  # ve bu yolları yeşil ile renklendir
+  open_set = maze.new_path(color: 0x009600DD)
+
+  # daha önce geçilen tüm yolları tanımla
+  # ve bu yolları kırmızı ile renklendir
+  histories = maze.new_path(color: 0xFF0000FF)
+
+  # "en iyi" yol algoritması düşüncesinde en umut verici yolları tanımla
+  # ve bu yolları pembe ile renklendir
+  best = maze.new_path(color: 0xffaaaaff)
+
+  # açık kümedeki ilk düğüm ile başla
+  n = solver.open
+
+  while n
+    # açık kümeye yolun kendisini ekle
+    open_set.set(n.point)
+
+    # düğümü geçmiş kayıtlara yani kendi bağlantılarına ekle
+    prev = maze.entrance
+    n.history.each do |pt|
+      how = histories.link(prev, pt)
+      histories.set(pt, how)
+      prev = pt
+    end
+    how = histories.link(prev, n.point)
+    histories.set(n.point, how)
+    n = n.next
+  end
+
+  if solver.open
+    prev = maze.entrance
+    solver.open.history.each do |pt|
+      how = best.link(prev, pt)
+      best.set(pt, how)
+      prev = pt
+    end
+    best.link(prev, solver.open.point)
+  elsif solver.solved?
+    prev = maze.entrance
+    solver.solution.each do |pt|
+      how = best.link(prev, pt)
+      best.set(pt, how)
+      prev = pt
+    end
+    best.link(prev, maze.exit)
+  end
+
+  # geçilmiş yollara yeni geçilenleri ekle
+  stale_paths.add_path(histories)
+
+  # # süreç boyunca arka planda çalışan animasyon üretici için
+  # fork do
+  #   File.open("#{STEPDIR}step-%03d.png" % step, "w" ) do |f|
+  #     f.write(maze.to(:png, cell_size: 30, background: 0x2f222222, paths: [best, open_set, histories, stale_paths]))
+  #   end
+  # end
+
+  puts "%d. adım" % step
+  step += 1
+end
+
+puts "#{step} adımda tamamlandı"
