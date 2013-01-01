@@ -1,57 +1,45 @@
 # encoding: utf-8
 
-# A* algoritmasını kullanarak labirent çözümü üret
-# üretilen çözümleri adım adım görüntüle
-
-require 'theseus'
-# require 'theseus/orthogonal_maze'
+require 'theseus/orthogonal_maze'
 require 'theseus/solvers/base'
 require 'fileutils'
 
-# An implementation of the A* search algorithm. Although this can be used to
-# search "perfect" mazes (those without loops), the recursive backtracker is
-# more efficient in that case.
-#
-# The A* algorithm really shines, though, with multiply-connected mazes
-# (those with non-zero braid values, or some symmetrical mazes). In this case,
-# it is guaranteed to return the shortest path through the maze between the
-# two points.
+# A* algoritması kullanarak hazırlanmış bi uygulama.
 class Astar < Theseus::Solvers::Base
 
-  # This is the data structure used by the Astar solver to keep track of the
-  # current cost of each examined cell and its associated history (path back
-  # to the start).
+  # bu nesne, her bir hücrenin kontrolü sırasında ilişki geçmişini kontrol eder
+  # ve hesaplanmış maliyetler doğrultusunda kontrol edeceği bir sonraki noktayı seçer
   #
-  # Although you will rarely need to use this class, it is documented because
-  # applications that wish to visualize the A* algorithm can use the open set
-  # of Node instances to draw paths through the maze as the algorithm runs.
+  # nadiren bu sınıfı kullanmamız gerekmesine rağmen,
+  # eğer çözüm algoritması görselleştirmek istenirse
+  # açık küme baülantıları kullanılarak gerçekleştirilebilir
   class Node
     # düğüm nesnelerinin karşılaştırılabilmesi bu nesne gerekli
     include Comparable
 
-    # The point in the maze associated with this node.
+    # labirentin bu düğüm ile ilgili olan noktası
     attr_accessor :point
 
-    # Whether the node is on the primary plane (+false+) or the under plane (+true+)
+    # Düğüm birincil düzlemde ile yanlış, alt düzlemde ise doğru olsun
     attr_accessor :under
 
-    # The path cost of this node (the distance from the start to this cell,
-    # through the maze)
+    # bu düğümün yol maliyeti: başlangıçtan itibaren bu düğüme olan mesafe
+    # (labirent üzerinden yapılan hesap)
     attr_accessor :path_cost
 
-    # The (optimistic) estimate for how much further the exit is from this node.
+    # çıkış bu düğümden tahminen (iyimser bir tahminle) ne kadar ilerde
     attr_accessor :estimate
 
-    # The total cost associated with this node (path_cost + estimate)
+    # bu düğüm ile ilişkili toplam maliyet (path_cost + tahmini)
     attr_accessor :cost
 
-    # The next node in the linked list for the set that this node belongs to.
+    # bağlantılı listesinde bu düğüme ait olan bir sonraki düğüm
     attr_accessor :next
 
-    # The array of points leading from the starting point, to this node.
+    # başlangıç noktasından, bu düğümün giden noktaları dizisi
     attr_reader :history
 
-    def initialize(point, under, path_cost, estimate, history) #:nodoc:
+    def initialize(point, under, path_cost, estimate, history)
       @point, @under, @path_cost, @estimate = point, under, path_cost, estimate
       @history = history
       @cost = path_cost + estimate
@@ -62,9 +50,9 @@ class Astar < Theseus::Solvers::Base
     end
   end
 
-  # The open set. This is a linked list of Node instances, used by the A*
-  # algorithm to determine which nodes remain to be considered. It is always
-  # in sorted order, with the most likely candidate at the head of the list.
+  # A* algoritması tarafından kullanılan düğüm örnekleri
+  # ve bağlantı listelerinin dikkate alınması gerekmektedir
+  # bu liste her zaman en olasıdan başlayarak sıralanır
   attr_reader :open
 
   def initialize(maze, a=maze.start, b=maze.finish)
@@ -134,7 +122,7 @@ class Astar < Theseus::Solvers::Base
         p.next = node
       end
 
-      # remove duplicates
+      # tekrar edilenleri kaldır
       while node.next && node.next.point == node.point
         node.next = node.next.next
       end
@@ -157,8 +145,7 @@ Dir.mkdir(STEPDIR) unless File.exist?(STEPDIR)
 FileUtils.rm_rf("#{STEPDIR}.")
 
 # herhangi bir çoklu bağlantılı labirent oluştur
-maze = Theseus::SigmaMaze.new(width: 10, height: 10, braid: 10)
-puts "labirent üretiliyor"
+maze = Theseus::OrthogonalMaze.new(width: 10, height: 10)
 maze.generate!
 
 # A* arama algoritması için yeni bir çözüm nesnesi oluştur
@@ -237,5 +224,3 @@ while solver.step
   puts "%d. adım" % step
   step += 1
 end
-
-puts "#{step} adımda tamamlandı"
