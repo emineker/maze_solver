@@ -69,7 +69,7 @@ class Solver < Theseus::Solvers::Base
 
     current = @open
 
-    # eğer gelinen nokta son nokta ise labirent çözülmü demektir
+    # gelinen nokta son nokta ise labirent çözülmüş demektir
     # bu durumda çözüm yolunu belirle
     if current.point == @finish
       @open = nil
@@ -77,16 +77,23 @@ class Solver < Theseus::Solvers::Base
     else
       @open = @open.next
 
-      @visits[current.point[1]][current.point[0]] |= current.under ? 2 : 1
+      x, y = current.point[0], current.point[1]
 
-      cell = @maze[current.point[0], current.point[1]]
+      @visits[y][x] |= current.under ? 2 : 1
+
+      cell = @maze[x, y]
 
       # istikamet üzerinde dön
-      @maze.potential_exits_at(current.point[0], current.point[1]).each do |dir|
+      @maze.potential_exits_at(x, y).each do |dir|
         try = current.under ? (dir << UNDER_SHIFT) : dir
         if cell & try != 0
-          point = [current.point[0] + @maze.dx(dir), current.point[1] + @maze.dy(dir)]
+          # point = [current.point[0] + @maze.dx(dir), current.point[1] + @maze.dy(dir)]
+          point = [x + @maze.dx(dir), y + @maze.dy(dir)]
+
+          # labirent bu noktalarda tanımsız olabilir bunu kontrol et
           next unless @maze.valid?(point[0], point[1])
+
+          # noktanın karşıtı üzerinden alt-üst yüzeyi belirle
           under = ((@maze[point[0], point[1]] >> UNDER_SHIFT) & @maze.opposite(dir) != 0)
           add_node(point, under, current.path_cost + 1, current.history + [current.point])
         end
@@ -94,7 +101,8 @@ class Solver < Theseus::Solvers::Base
     end
   end
 
-  # tahmini yol hesabı
+  # tahmini yol hesabı diğer adıyla maliyet hesabı
+  # kordinat bazından çıkış noktasına olan kuş bakışı uzaklık
   def estimate(point)
     Math.sqrt((@finish[0] - point[0])**2 + (@finish[1] - point[1])**2)
   end
@@ -161,8 +169,7 @@ STDIN.gets.chomp
 # bir çözüm nesnesi oluştur
 solver = Solver.new(maze)
 
-# eskimiş yollar: daha önce kullanılmış ve artık bu yoldan biryere
-# ulaşılamayacağı anlaşıldığında gri ile renklendir
+# daha önce kullanılmış ve çıkmaz sokakları gri ile renklendir
 stale_paths = maze.new_path(color: 0x9f9f9fff)
 
 while solver.step
@@ -218,12 +225,12 @@ while solver.step
   # geçilmiş yollara yeni geçilenleri ekle
   stale_paths.add_path(histories)
 
-  # # süreç boyunca arka planda çalışan animasyon üretici için
-  # fork do
-  #   File.open("#{STEPDIR}step-%03d.png" % step, "w" ) do |f|
-  #     f.write(maze.to(:png, cell_size: 30, background: 0x2f222222, paths: [best_paths, open_paths, histories, stale_paths]))
-  #   end
-  # end
+  # süreç boyunca arka planda çalışan animasyon üretici için
+  fork do
+    File.open("#{STEPDIR}step-%03d.png" % step, "w" ) do |f|
+      f.write(maze.to(:png, cell_size: 30, background: 0x2f222222, paths: [best_paths, open_paths, histories, stale_paths]))
+    end
+  end
 
   puts "%d. adım" % step
   step += 1
