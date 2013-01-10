@@ -64,7 +64,7 @@ class Solver < Theseus::Solvers::Base
   end
 
   def step
-    # çıkış yapılmışsa burdan dön
+    # çıkış yapılmışsa buradan dön
     return unless @open
 
     current = @open
@@ -87,7 +87,7 @@ class Solver < Theseus::Solvers::Base
       @maze.potential_exits_at(x, y).each do |dir|
         try = current.under ? (dir << UNDER_SHIFT) : dir
         if cell & try != 0
-          # point = [current.point[0] + @maze.dx(dir), current.point[1] + @maze.dy(dir)]
+          # yeni noktayı kordinat düzlemi üzerinde hazırla
           point = [x + @maze.dx(dir), y + @maze.dy(dir)]
 
           # labirent bu noktalarda tanımsız olabilir bunu kontrol et
@@ -194,12 +194,12 @@ while solver.step
     # düğümü geçmiş kayıtlara yani kendi bağlantılarına ekle
     prev = maze.entrance
     n.history.each do |point|
-      how = histories.link(prev, point)
-      histories.set(point, how)
+      where_with = histories.link(prev, point)
+      histories.set(point, where_with)
       prev = point
     end
-    how = histories.link(prev, n.point)
-    histories.set(n.point, how)
+    where_with = histories.link(prev, n.point)
+    histories.set(n.point, where_with)
     n = n.next
   end
 
@@ -208,15 +208,15 @@ while solver.step
 
   if solver.open
     solver.open.history.each do |point|
-      how = best_paths.link(prev, point)
-      best_paths.set(point, how)
+      where_with = best_paths.link(prev, point)
+      best_paths.set(point, where_with)
       prev = point
     end
     best_paths.link(prev, solver.open.point)
   elsif solver.solved?
     solver.solution.each do |point|
-      how = best_paths.link(prev, point)
-      best_paths.set(point, how)
+      where_with = best_paths.link(prev, point)
+      best_paths.set(point, where_with)
       prev = point
     end
     best_paths.link(prev, maze.exit)
