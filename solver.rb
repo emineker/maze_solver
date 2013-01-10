@@ -51,16 +51,26 @@ class Solver < Theseus::Solvers::Base
 
   def initialize(maze)
     super
+
+    # labirentin başlama ve bitiş noktalarını al
     @start, @finish = maze.start, maze.finish
+
+    # labirent giriş düğümünü oluştur
     @open = Node.new(@start, false, 0, estimate(@start), [])
+
+    # oluşturulan labirentin yükseklik ve gelişliği oranında
+    # ziyaret edilmemiş olan 0'lar ile dolu dizi topluğunu belirle
     @visits = Array.new(@maze.height) { Array.new(@maze.width, 0) }
   end
 
   def step
+    # çıkış yapılmışsa burdan dön
     return unless @open
 
     current = @open
 
+    # eğer gelinen nokta son nokta ise labirent çözülmü demektir
+    # bu durumda çözüm yolunu belirle
     if current.point == @finish
       @open = nil
       @solution = current.history + [@finish]
@@ -71,8 +81,8 @@ class Solver < Theseus::Solvers::Base
 
       cell = @maze[current.point[0], current.point[1]]
 
-      directions = @maze.potential_exits_at(current.point[0], current.point[1])
-      directions.each do |dir|
+      # istikamet üzerinde dön
+      @maze.potential_exits_at(current.point[0], current.point[1]).each do |dir|
         try = current.under ? (dir << UNDER_SHIFT) : dir
         if cell & try != 0
           point = [current.point[0] + @maze.dx(dir), current.point[1] + @maze.dy(dir)]
@@ -146,8 +156,7 @@ STDIN.gets.chomp
 # NOT
 # düğüm sınıfı nadiren kullanılması gerekmesine rağmen
 # çözüm algoritması görselleştirmek istenirse
-# açık küme bağlantıları kullanılarak gerçekleştirilebilir
-
+# açık yolları kullanılarak gerçekleştirilebilir
 
 # bir çözüm nesnesi oluştur
 solver = Solver.new(maze)
@@ -157,9 +166,8 @@ solver = Solver.new(maze)
 stale_paths = maze.new_path(color: 0x9f9f9fff)
 
 while solver.step
-  # devamı olan yolları "açık küme" şeklinde tanımla
-  # ve bu yolları yeşil ile renklendir
-  open_set = maze.new_path(color: 0x009600DD)
+  # devamı olan yolları yeşil ile renklendir (açık yollar)
+  open_paths = maze.new_path(color: 0x009600DD)
 
   # daha önce geçilen tüm yolları tanımla
   # ve bu yolları kırmızı ile renklendir
@@ -169,12 +177,12 @@ while solver.step
   # ve bu yolları pembe ile renklendir
   best_paths = maze.new_path(color: 0xffaaaaff)
 
-  # açık kümedeki ilk düğüm ile başla
+  # açık yollardaki ilk düğüm ile başla
   n = solver.open
 
   while n
-    # açık kümeye yolun kendisini ekle
-    open_set.set(n.point)
+    # açık yollara yolun kendisini ekle
+    open_paths.set(n.point)
 
     # düğümü geçmiş kayıtlara yani kendi bağlantılarına ekle
     prev = maze.entrance
@@ -213,7 +221,7 @@ while solver.step
   # # süreç boyunca arka planda çalışan animasyon üretici için
   # fork do
   #   File.open("#{STEPDIR}step-%03d.png" % step, "w" ) do |f|
-  #     f.write(maze.to(:png, cell_size: 30, background: 0x2f222222, paths: [best_paths, open_set, histories, stale_paths]))
+  #     f.write(maze.to(:png, cell_size: 30, background: 0x2f222222, paths: [best_paths, open_paths, histories, stale_paths]))
   #   end
   # end
 
