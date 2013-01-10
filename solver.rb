@@ -6,12 +6,8 @@ require 'fileutils'
 
 # bu nesne, her bir hücrenin kontrolü sırasında ilişki geçmişini kontrol eder
 # ve hesaplanmış maliyetler doğrultusunda kontrol edeceği bir sonraki noktayı seçer
-#
-# nadiren bu sınıfı kullanmamız gerekmesine rağmen,
-# eğer çözüm algoritması görselleştirmek istenirse
-# açık küme bağlantıları kullanılarak gerçekleştirilebilir
 class Node
-  # düğüm nesnelerinin karşılaştırılabilmesi için kullan
+  # düğüm nesnelerinin karşılaştırılabilmesi için kullanılması gerek
   include Comparable
 
   # labirentin bu düğüm ile ilgili olan noktası
@@ -55,8 +51,8 @@ class Solver < Theseus::Solvers::Base
 
   def initialize(maze)
     super
-    @a, @b = maze.start, maze.finish
-    @open = Node.new(@a, false, 0, estimate(@a), [])
+    @start, @finish = maze.start, maze.finish
+    @open = Node.new(@start, false, 0, estimate(@start), [])
     @visits = Array.new(@maze.height) { Array.new(@maze.width, 0) }
   end
 
@@ -65,9 +61,9 @@ class Solver < Theseus::Solvers::Base
 
     current = @open
 
-    if current.point == @b
+    if current.point == @finish
       @open = nil
-      @solution = current.history + [@b]
+      @solution = current.history + [@finish]
     else
       @open = @open.next
 
@@ -82,17 +78,15 @@ class Solver < Theseus::Solvers::Base
           point = [current.point[0] + @maze.dx(dir), current.point[1] + @maze.dy(dir)]
           next unless @maze.valid?(point[0], point[1])
           under = ((@maze[point[0], point[1]] >> UNDER_SHIFT) & @maze.opposite(dir) != 0)
-          add_node(point, under, current.path_cost+1, current.history + [current.point])
+          add_node(point, under, current.path_cost + 1, current.history + [current.point])
         end
       end
     end
   end
 
-  private
-
   # tahmini yol hesabı
   def estimate(point)
-    Math.sqrt((@b[0] - point[0])**2 + (@b[1] - point[1])**2)
+    Math.sqrt((@finish[0] - point[0])**2 + (@finish[1] - point[1])**2)
   end
 
   def add_node(point, under, path_cost, history)
@@ -124,7 +118,6 @@ class Solver < Theseus::Solvers::Base
       @open = node
     end
   end
-
 end
 
 # adımların resimlerinin tutulduğu dizin
@@ -147,8 +140,13 @@ maze = Theseus::OrthogonalMaze.new(width: 10, height: 10)
 maze.generate!
 
 puts maze
-print "\nDevam etmek için bir tuşa basın..."
+print "Devam etmek için bir tuşa basın..."
 STDIN.gets.chomp
+
+# NOT
+# düğüm sınıfı nadiren kullanılması gerekmesine rağmen
+# çözüm algoritması görselleştirmek istenirse
+# açık küme bağlantıları kullanılarak gerçekleştirilebilir
 
 
 # bir çözüm nesnesi oluştur
@@ -169,7 +167,7 @@ while solver.step
 
   # "en iyi" yol algoritması düşüncesinde en umut verici yolları tanımla
   # ve bu yolları pembe ile renklendir
-  best = maze.new_path(color: 0xffaaaaff)
+  best_paths = maze.new_path(color: 0xffaaaaff)
 
   # açık kümedeki ilk düğüm ile başla
   n = solver.open
@@ -180,32 +178,33 @@ while solver.step
 
     # düğümü geçmiş kayıtlara yani kendi bağlantılarına ekle
     prev = maze.entrance
-    n.history.each do |pt|
-      how = histories.link(prev, pt)
-      histories.set(pt, how)
-      prev = pt
+    n.history.each do |point|
+      how = histories.link(prev, point)
+      histories.set(point, how)
+      prev = point
     end
     how = histories.link(prev, n.point)
     histories.set(n.point, how)
     n = n.next
   end
 
+  # labirentin giriş noktası değerlerini al
+  prev = maze.entrance
+
   if solver.open
-    prev = maze.entrance
-    solver.open.history.each do |pt|
-      how = best.link(prev, pt)
-      best.set(pt, how)
-      prev = pt
+    solver.open.history.each do |point|
+      how = best_paths.link(prev, point)
+      best_paths.set(point, how)
+      prev = point
     end
-    best.link(prev, solver.open.point)
+    best_paths.link(prev, solver.open.point)
   elsif solver.solved?
-    prev = maze.entrance
-    solver.solution.each do |pt|
-      how = best.link(prev, pt)
-      best.set(pt, how)
-      prev = pt
+    solver.solution.each do |point|
+      how = best_paths.link(prev, point)
+      best_paths.set(point, how)
+      prev = point
     end
-    best.link(prev, maze.exit)
+    best_paths.link(prev, maze.exit)
   end
 
   # geçilmiş yollara yeni geçilenleri ekle
@@ -214,7 +213,7 @@ while solver.step
   # # süreç boyunca arka planda çalışan animasyon üretici için
   # fork do
   #   File.open("#{STEPDIR}step-%03d.png" % step, "w" ) do |f|
-  #     f.write(maze.to(:png, cell_size: 30, background: 0x2f222222, paths: [best, open_set, histories, stale_paths]))
+  #     f.write(maze.to(:png, cell_size: 30, background: 0x2f222222, paths: [best_paths, open_set, histories, stale_paths]))
   #   end
   # end
 
