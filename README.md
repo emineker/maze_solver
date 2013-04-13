@@ -1,4 +1,4 @@
-maze solution
+maze solver
 ===
 
         $ sudo gem install theseus
